@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
 import Login from './components/Auth/Login';
 import Signup from './components/Auth/Signup';
+import ReactMarkdown from 'react-markdown';
 import './index.css';
 
 const DocuRAG = () => {
@@ -10,6 +11,7 @@ const DocuRAG = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploadMenuOpen, setIsUploadMenuOpen] = useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const menuRef = React.useRef<HTMLDivElement>(null);
   const [uploadType, setUploadType] = useState<'all' | 'image'>('all');
   const [messages, setMessages] = useState<{ role: 'user' | 'assistant', content?: string, file?: { name: string, type: string } }[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -32,6 +34,25 @@ const DocuRAG = () => {
       return () => clearTimeout(timer);
     }
   }, [notification]);
+
+  // Close upload menu on click outside
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsUploadMenuOpen(false);
+      }
+    };
+
+    if (isUploadMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    } else {
+      document.removeEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isUploadMenuOpen]);
 
   const API_URL = 'http://localhost:8000';
 
@@ -72,7 +93,7 @@ const DocuRAG = () => {
           body: formData,
         });
         await response.json();
-        setNotification('File is successfully uploaded and chunked');
+        // Notification removed as per user request
       } catch (error) {
         console.error('Upload failed:', error);
         setNotification('Failed to upload and process the file.');
@@ -126,7 +147,15 @@ const DocuRAG = () => {
 
       {/* Sidebar */}
       <aside className={`sidebar ${isSidebarOpen ? 'open' : ''}`}>
-        <button className="new-chat-btn" onClick={() => setMessages([])}>
+        <button className="new-chat-btn" onClick={async () => {
+          setMessages([]);
+          try {
+            await fetch(`${API_URL}/clear`, { method: 'POST' });
+            setNotification('Context cleared. Ready for new documents.');
+          } catch (error) {
+            console.error('Failed to clear context:', error);
+          }
+        }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <line x1="12" y1="5" x2="12" y2="19"></line>
             <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -220,7 +249,9 @@ const DocuRAG = () => {
                         </div>
                       </div>
                     ) : (
-                      msg.content
+                      <div className="markdown-content">
+                        <ReactMarkdown>{msg.content || ''}</ReactMarkdown>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -268,7 +299,7 @@ const DocuRAG = () => {
               onChange={handleFileChange}
               accept={uploadType === 'image' ? "image/*" : ".pdf,.doc,.docx,.txt"}
             />
-            <div className="attachment-container">
+            <div className="attachment-container" ref={menuRef}>
               <button 
                 className="attachment-btn" 
                 onClick={() => setIsUploadMenuOpen(!isUploadMenuOpen)}

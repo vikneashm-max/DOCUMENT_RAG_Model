@@ -53,12 +53,49 @@ async def root():
 @app.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
     try:
+        # Clear existing uploads to avoid context pollution
+        if os.path.exists(processor.upload_dir):
+            for filename in os.listdir(processor.upload_dir):
+                file_path = os.path.join(processor.upload_dir, filename)
+                try:
+                    if os.path.isfile(file_path) or os.path.islink(file_path):
+                        os.unlink(file_path)
+                    elif os.path.isdir(file_path):
+                        shutil.rmtree(file_path)
+                except Exception as e:
+                    print(f'Failed to delete {file_path}. Reason: {e}')
+
         file_path = os.path.join(processor.upload_dir, file.filename)
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
+        
         # Automatically trigger ingestion after upload
         processor.create_vector_store()
-        return {"message": f"Successfully uploaded and processed {file.filename}"}
+        
+        # Delete the file after it has been indexed to keep the uploads folder clean
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            
+        return {"message": f"Successfully processed {file.filename}"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/clear")
+async def clear_context():
+    try:
+        # Clear uploads
+        if os.path.exists(processor.upload_dir):
+            for filename in os.listdir(processor.upload_dir):
+                file_path = os.path.join(processor.upload_dir, filename)
+                if os.path.isfile(file_path):
+                    os.unlink(file_path)
+        
+        # Clear vector store
+        if os.path.exists(processor.vector_store_path):
+            shutil.rmtree(processor.vector_store_path)
+            os.makedirs(processor.vector_store_path)
+            
+        return {"message": "Context cleared successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -87,7 +124,8 @@ async def chat(request: ChatRequest):
                     processor.embeddings, 
                     allow_dangerous_deserialization=True
                 )
-                docs = vector_db.similarity_search(request.message, k=3)
+                # Use MMR search for better diversity (helps catch names/headers and content)
+                docs = vector_db.max_marginal_relevance_search(request.message, k=5, fetch_k=10)
                 context = "\n".join([doc.page_content for doc in docs])
             else:
                 print("Vector store index not found. Proceeding without context.")
@@ -95,8 +133,13 @@ async def chat(request: ChatRequest):
             print(f"Error loading vector store: {e}. Proceeding without context.")
 
         # 2. Build prompt with context
-        system_prompt = "You are a helpful assistant. Use the provided context to answer the question if available."
-        user_message = f"Context:\n{context}\n\nQuestion: {request.message}" if context else request.message
+        system_prompt = """You are a professional Resume Assistant. 
+Analyze the provided context (which is from a student's resume) and answer the user's question accurately.
+- If the user asks for the student's name, look at the very top of the document or header sections.
+- Distinguish carefully between 'Projects', 'Hackathons', 'Work Experience', and 'Additional Information'.
+- If the information is not in the context, say you don't know rather than guessing.
+- Be concise and professional."""
+        user_message = f"Context from Resume:\n{context}\n\nQuestion: {request.message}" if context else request.message
 
         # 3. Call Groq
         print(f"Calling Groq with model: {request.model}")

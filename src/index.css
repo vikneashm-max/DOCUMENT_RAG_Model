@@ -324,7 +324,6 @@ body {
   font-size: 16px;
   line-height: 1.6;
   color: var(--text-primary);
-  white-space: pre-wrap;
   word-break: break-word;
   max-width: 85%;
 }
@@ -338,6 +337,63 @@ body {
 
 .message-row.assistant .message-content {
   padding-top: 4px;
+}
+
+/* Markdown Content Styling */
+.markdown-content {
+  color: var(--text-primary);
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.markdown-content p {
+  margin-bottom: 12px;
+}
+
+.markdown-content p:last-child {
+  margin-bottom: 0;
+}
+
+.markdown-content ul, .markdown-content ol {
+  margin-bottom: 12px;
+  padding-left: 20px;
+}
+
+.markdown-content li {
+  margin-bottom: 4px;
+}
+
+.markdown-content strong {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.markdown-content h1, .markdown-content h2, .markdown-content h3 {
+  margin: 16px 0 8px;
+  font-weight: 600;
+}
+
+.markdown-content code {
+  background: #f3f4f6;
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 14px;
+}
+
+.markdown-content pre {
+  background: #1f2937;
+  color: #f9fafb;
+  padding: 16px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 12px 0;
+}
+
+.markdown-content pre code {
+  background: transparent;
+  padding: 0;
+  color: inherit;
 }
 
 .typing {

@@ -12,16 +12,20 @@ class DocumentProcessor:
         self.vector_store_path = vector_store_path
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
-        
-        # Initialize embeddings
-        print("Loading embedding model...")
-        self.embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+        self._embeddings = None
         
         # Ensure directories exist
         if not os.path.exists(self.upload_dir):
             os.makedirs(self.upload_dir)
         if not os.path.exists(self.vector_store_path):
             os.makedirs(self.vector_store_path)
+
+    @property
+    def embeddings(self):
+        if self._embeddings is None:
+            print("Loading embedding model (this may take a moment)...")
+            self._embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+        return self._embeddings
 
     def create_vector_store(self):
         """
