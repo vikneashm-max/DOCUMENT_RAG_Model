@@ -1,18 +1,46 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import './Auth.css';
 
 const Signup = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
   const navigate = useNavigate();
+  const { login } = useAuth();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulate signup
-    console.log('Signing up with:', name, email, password);
-    navigate('/');
+    setIsLoading(true);
+    setError('');
+
+    try {
+      const response = await fetch('http://localhost:8000/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          email, 
+          password, 
+          full_name: name 
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Signup failed');
+      }
+
+      login(data.access_token, data.user);
+      navigate('/chat');
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -30,6 +58,7 @@ const Signup = () => {
         </div>
 
         <form className="auth-form" onSubmit={handleSubmit}>
+          {error && <div style={{ color: '#ef4444', fontSize: '13px', marginBottom: '16px', textAlign: 'center', fontWeight: 500 }}>{error}</div>}
           <div className="form-group">
             <label className="form-label">Full Name</label>
             <div className="form-input-wrapper">
@@ -90,11 +119,13 @@ const Signup = () => {
             </div>
           </div>
 
-          <button type="submit" className="auth-button">Create account</button>
+          <button type="submit" className="auth-button" disabled={isLoading}>
+            {isLoading ? 'Creating account...' : 'Create account'}
+          </button>
         </form>
 
         <p className="auth-footer">
-          Already have an account? <Link to="/login" className="auth-link">Sign in</Link>
+          Already have an account? <Link to="/" className="auth-link">Sign in</Link>
         </p>
       </div>
     </div>

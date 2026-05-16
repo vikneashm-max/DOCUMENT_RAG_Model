@@ -1,24 +1,50 @@
 import os
 import shutil
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException, UploadFile, File, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from groq import Groq
 from dotenv import load_dotenv
-from langchain_community.vectorstores import FAISS
+from typing import Optional
+from jose import JWTError, jwt
+
+# Fix for torch DLL load issues on Windows
+import sys
+if sys.platform == "win32":
+    import os
+    torch_lib = os.path.join(sys.prefix, 'Lib', 'site-packages', 'torch', 'lib')
+    if os.path.exists(torch_lib):
+        try:
+            os.add_dll_directory(torch_lib)
+        except Exception:
+            pass
 
 try:
-    import document_processor
-    from document_processor import DocumentProcessor
+    from backend.document_processor import DocumentProcessor
 except ImportError:
-    from .document_processor import DocumentProcessor
+    try:
+        from .document_processor import DocumentProcessor
+    except ImportError:
+        import document_processor
+        from document_processor import DocumentProcessor
 
-# Load environment variables from backend or root directory
+# Database imports
+from sqlmodel import Session, select
+from database import engine, init_db, get_session
+from models import User, Conversation, Message, Document as DBDocument
+from auth import get_password_hash, verify_password, create_access_token
+
+# Load environment variables
 load_dotenv()
 if not os.getenv("GROQ_API_KEY"):
     load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 app = FastAPI(title="DocuRAG Backend")
+
+# Initialize database on startup
+@app.on_event("startup")
+def on_startup():
+    init_db()
 
 # Initialize processor
 processor = DocumentProcessor()
@@ -26,7 +52,7 @@ processor = DocumentProcessor()
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Adjust this in production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -39,13 +65,198 @@ if not api_key:
 
 client = Groq(api_key=api_key)
 
+# JWT settings
+SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key")
+ALGORITHM = "HS256"
+
+# ─────────────────────────────────────────────
+# Helper: get current user from JWT token
+# ─────────────────────────────────────────────
+def get_current_user(token: str) -> Optional[str]:
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        return payload.get("sub")  # returns email
+    except JWTError:
+        return None
+
+# ─────────────────────────────────────────────
+# Pydantic Models
+# ─────────────────────────────────────────────
 class ChatRequest(BaseModel):
     message: str
     model: str = "llama-3.3-70b-versatile"
+    conversation_id: Optional[int] = None  # pass existing conversation id to continue chat
+    token: Optional[str] = None            # JWT token to identify user
 
 class ChatResponse(BaseModel):
     response: str
+    conversation_id: int  # return conversation id so frontend can continue same chat
 
+class UserSignup(BaseModel):
+    email: str
+    password: str
+    full_name: str
+
+class UserLogin(BaseModel):
+    email: str
+    password: str
+
+# ─────────────────────────────────────────────
+# Auth Routes
+# ─────────────────────────────────────────────
+@app.post("/signup")
+async def signup(user_data: UserSignup):
+    with Session(engine) as session:
+        existing_user = session.exec(select(User).where(User.email == user_data.email)).first()
+        if existing_user:
+            raise HTTPException(status_code=400, detail="Email already registered")
+        
+        new_user = User(
+            email=user_data.email,
+            password_hash=get_password_hash(user_data.password),
+            full_name=user_data.full_name
+        )
+        session.add(new_user)
+        session.commit()
+        session.refresh(new_user)
+        
+        token = create_access_token({"sub": new_user.email})
+        return {
+            "access_token": token,
+            "token_type": "bearer",
+            "user": {"email": new_user.email, "full_name": new_user.full_name}
+        }
+
+@app.post("/signin")
+async def signin(user_data: UserLogin):
+    with Session(engine) as session:
+        user = session.exec(select(User).where(User.email == user_data.email)).first()
+        if not user or not verify_password(user_data.password, user.password_hash):
+            raise HTTPException(status_code=401, detail="Invalid email or password")
+        
+        token = create_access_token({"sub": user.email})
+        return {
+            "access_token": token,
+            "token_type": "bearer",
+            "user": {"email": user.email, "full_name": user.full_name}
+        }
+
+# ─────────────────────────────────────────────
+# Chat History Routes
+# ─────────────────────────────────────────────
+@app.get("/conversations")
+async def get_conversations(token: str):
+    """Get all conversations for logged in user"""
+    email = get_current_user(token)
+    if not email:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    
+    with Session(engine) as session:
+        user = session.exec(select(User).where(User.email == email)).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        conversations = session.exec(
+            select(Conversation)
+            .where(Conversation.user_id == user.id)
+            .order_by(Conversation.created_at.desc())
+        ).all()
+        
+        return [{"id": c.id, "title": c.title, "created_at": c.created_at} for c in conversations]
+
+@app.get("/conversations/{conversation_id}/messages")
+async def get_messages(conversation_id: int, token: str):
+    """Get all messages for a specific conversation"""
+    email = get_current_user(token)
+    if not email:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    
+    with Session(engine) as session:
+        conversation = session.get(Conversation, conversation_id)
+        if not conversation:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+        
+        messages = session.exec(
+            select(Message)
+            .where(Message.conversation_id == conversation_id)
+            .order_by(Message.created_at.asc())
+        ).all()
+        
+        return [{"role": m.role, "content": m.content, "created_at": m.created_at} for m in messages]
+
+@app.delete("/conversations/{conversation_id}")
+async def delete_conversation(conversation_id: int, token: str):
+    """Delete a conversation and all its messages"""
+    email = get_current_user(token)
+    if not email:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    
+    with Session(engine) as session:
+        # Delete messages first
+        messages = session.exec(select(Message).where(Message.conversation_id == conversation_id)).all()
+        for message in messages:
+            session.delete(message)
+        
+        # Delete conversation
+        conversation = session.get(Conversation, conversation_id)
+        if conversation:
+            session.delete(conversation)
+        
+        session.commit()
+        return {"message": "Conversation deleted successfully"}
+
+@app.get("/profile")
+async def get_profile(token: str):
+    """Get user profile data and statistics"""
+    email = get_current_user(token)
+    if not email:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    
+    with Session(engine) as session:
+        user = session.exec(select(User).where(User.email == email)).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Calculate stats
+        total_convs = session.exec(select(Conversation).where(Conversation.user_id == user.id)).all()
+        total_messages = 0
+        for conv in total_convs:
+            msgs = session.exec(select(Message).where(Message.conversation_id == conv.id)).all()
+            total_messages += len(msgs)
+            
+        return {
+            "full_name": user.full_name,
+            "email": user.email,
+            "created_at": user.created_at,
+            "total_conversations": len(total_convs),
+            "total_messages": total_messages
+        }
+
+class PasswordChange(BaseModel):
+    token: str
+    current_password: str
+    new_password: str
+
+@app.post("/change-password")
+async def change_password(data: PasswordChange):
+    """Change user password after verifying current one"""
+    email = get_current_user(data.token)
+    if not email:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    
+    with Session(engine) as session:
+        user = session.exec(select(User).where(User.email == email)).first()
+        if not user or not verify_password(data.current_password, user.password_hash):
+            raise HTTPException(status_code=400, detail="Incorrect current password")
+        
+        user.password_hash = get_password_hash(data.new_password)
+        session.add(user)
+        session.commit()
+        return {"message": "Password updated successfully"}
+
+# ─────────────────────────────────────────────
+# Existing Routes
+# ─────────────────────────────────────────────
 @app.get("/")
 async def root():
     return {"message": "DocuRAG API is running"}
@@ -53,7 +264,6 @@ async def root():
 @app.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
     try:
-        # Clear existing uploads to avoid context pollution
         if os.path.exists(processor.upload_dir):
             for filename in os.listdir(processor.upload_dir):
                 file_path = os.path.join(processor.upload_dir, filename)
@@ -69,10 +279,8 @@ async def upload_file(file: UploadFile = File(...)):
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
         
-        # Automatically trigger ingestion after upload
         processor.create_vector_store()
         
-        # Delete the file after it has been indexed to keep the uploads folder clean
         if os.path.exists(file_path):
             os.remove(file_path)
             
@@ -83,14 +291,12 @@ async def upload_file(file: UploadFile = File(...)):
 @app.post("/clear")
 async def clear_context():
     try:
-        # Clear uploads
         if os.path.exists(processor.upload_dir):
             for filename in os.listdir(processor.upload_dir):
                 file_path = os.path.join(processor.upload_dir, filename)
                 if os.path.isfile(file_path):
                     os.unlink(file_path)
         
-        # Clear vector store
         if os.path.exists(processor.vector_store_path):
             shutil.rmtree(processor.vector_store_path)
             os.makedirs(processor.vector_store_path)
@@ -110,21 +316,23 @@ async def ingest_documents():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# ─────────────────────────────────────────────
+# Chat Route — Now Saves History
+# ─────────────────────────────────────────────
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
     try:
         # 1. Search vector store for context
         context = ""
         try:
-            # Check if index exists before trying to load
             index_path = os.path.join(processor.vector_store_path, "index.faiss")
             if os.path.exists(index_path):
+                from langchain_community.vectorstores import FAISS
                 vector_db = FAISS.load_local(
-                    processor.vector_store_path, 
-                    processor.embeddings, 
+                    processor.vector_store_path,
+                    processor.embeddings,
                     allow_dangerous_deserialization=True
                 )
-                # Use MMR search for better diversity (helps catch names/headers and content)
                 docs = vector_db.max_marginal_relevance_search(request.message, k=5, fetch_k=10)
                 context = "\n".join([doc.page_content for doc in docs])
             else:
@@ -132,14 +340,15 @@ async def chat(request: ChatRequest):
         except Exception as e:
             print(f"Error loading vector store: {e}. Proceeding without context.")
 
-        # 2. Build prompt with context
-        system_prompt = """You are a professional Resume Assistant. 
-Analyze the provided context (which is from a student's resume) and answer the user's question accurately.
-- If the user asks for the student's name, look at the very top of the document or header sections.
-- Distinguish carefully between 'Projects', 'Hackathons', 'Work Experience', and 'Additional Information'.
+        # 2. Build prompt
+        system_prompt = """You are a highly intelligent and professional Document Assistant. 
+Analyze the provided context (which could be study materials, resumes, reports, or any other document) and answer the user's question accurately based on that context.
+
+- Base your answers strictly on the provided context.
+- If the context contains specific details or technical concepts, prioritize accuracy.
 - If the information is not in the context, say you don't know rather than guessing.
-- Be concise and professional."""
-        user_message = f"Context from Resume:\n{context}\n\nQuestion: {request.message}" if context else request.message
+- Be concise, professional, and helpful."""
+        user_message = f"Context from Document:\n{context}\n\nQuestion: {request.message}" if context else request.message
 
         # 3. Call Groq
         print(f"Calling Groq with model: {request.model}")
@@ -153,10 +362,52 @@ Analyze the provided context (which is from a student's resume) and answer the u
                 temperature=0.7,
                 max_tokens=1024,
             )
-            return ChatResponse(response=completion.choices[0].message.content)
+            ai_response = completion.choices[0].message.content
         except Exception as groq_error:
             print(f"Groq API Error: {groq_error}")
             raise HTTPException(status_code=500, detail=f"AI Provider Error: {str(groq_error)}")
+
+        # 4. Save chat history to PostgreSQL (only if token provided)
+        conversation_id = request.conversation_id
+
+        if request.token:
+            email = get_current_user(request.token)
+            if email:
+                with Session(engine) as session:
+                    user = session.exec(select(User).where(User.email == email)).first()
+                    if user:
+                        # Create new conversation if none exists
+                        if not conversation_id:
+                            # Use first 50 chars of message as title
+                            title = request.message[:50] + "..." if len(request.message) > 50 else request.message
+                            conversation = Conversation(user_id=user.id, title=title)
+                            session.add(conversation)
+                            session.commit()
+                            session.refresh(conversation)
+                            conversation_id = conversation.id
+
+                        # Save user message
+                        user_msg = Message(
+                            conversation_id=conversation_id,
+                            role="user",
+                            content=request.message
+                        )
+                        session.add(user_msg)
+
+                        # Save assistant response
+                        assistant_msg = Message(
+                            conversation_id=conversation_id,
+                            role="assistant",
+                            content=ai_response
+                        )
+                        session.add(assistant_msg)
+                        session.commit()
+
+        return ChatResponse(
+            response=ai_response,
+            conversation_id=conversation_id or 0
+        )
+
     except Exception as e:
         print(f"Server Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))

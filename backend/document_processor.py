@@ -1,9 +1,5 @@
 import os
 from typing import List
-from langchain_community.document_loaders import DirectoryLoader, PyPDFLoader, TextLoader
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import FAISS
-from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_core.documents import Document
 
 class DocumentProcessor:
@@ -23,6 +19,7 @@ class DocumentProcessor:
     @property
     def embeddings(self):
         if self._embeddings is None:
+            from langchain_community.embeddings import HuggingFaceEmbeddings
             print("Loading embedding model (this may take a moment)...")
             self._embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
         return self._embeddings
@@ -31,6 +28,7 @@ class DocumentProcessor:
         """
         Processes documents, creates a FAISS vector store, and saves it locally.
         """
+        from langchain_community.vectorstores import FAISS
         chunks = self.process_directory()
         if not chunks:
             return None
@@ -45,6 +43,9 @@ class DocumentProcessor:
         """
         Loads all PDF and TXT files from the upload directory and splits them into chunks.
         """
+        from langchain_community.document_loaders import DirectoryLoader, PyPDFLoader, TextLoader
+        from langchain_text_splitters import RecursiveCharacterTextSplitter
+        
         print(f"Processing documents in {self.upload_dir}...")
         
         # Load PDFs

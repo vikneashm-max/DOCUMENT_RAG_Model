@@ -11,3 +11,7 @@ python-dotenv
 python-multipart
 tiktoken
 langchain-text-splitters
+sqlmodel
+psycopg2-binary
+passlib[bcrypt]
+python-jose[cryptography]
