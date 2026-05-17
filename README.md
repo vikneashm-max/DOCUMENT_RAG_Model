@@ -1,73 +1,53 @@
-# React + TypeScript + Vite
+RAG Project
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A modern Retrieval-Augmented Generation (RAG) application built with React + TypeScript + Vite. This project enables intelligent document querying by combining semantic search, vector embeddings, and Large Language Models (LLMs) to generate context-aware responses.
 
-Currently, two official plugins are available:
+Features
+⚡ Fast frontend powered by Vite
+⚛️ React + TypeScript architecture
+🔍 Semantic document retrieval
+🧠 LLM-powered answer generation
+📄 Upload and process documents
+📚 Vector database integration
+💬 Interactive chat interface
+🎨 Responsive and modern UI
+🔥 Hot Module Replacement (HMR)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Tech Stack
+Frontend: React, TypeScript, Vite
+Backend: FastAPI
+LLM Integration: Groq API Key (Free Tier)
+Vector Database: FAISS
 
-## React Compiler
+Installation
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Clone the repository:
+git clone <your-repository-url>
+cd rag-project
 
-## Expanding the ESLint configuration
+Install dependencies:
+npm install
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+Start the development server:
+npm run dev
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+The React Frontpage will run like this:
+http://localhost:8000
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+Environment Variables
+Create a .env file in the root directory:
+GROQ_API_KEY="Paste Your Groq API Key Here"(Get your Free API Key from https://groq.com)
+DATABASE_URL=postgresql://postgres:your_password@localhost:5432/rag_db
+SECRET_KEY=Paste Your Secret Key Here 
+(For Database and Secret Key, No double quotes should be given)
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+Install Python(not latest version)
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+run this command:
+python -m venv venv inside the project folder
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+run this command:
+pip install -r requirements.txt
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+After installing dependencies,
+Enjoy!
