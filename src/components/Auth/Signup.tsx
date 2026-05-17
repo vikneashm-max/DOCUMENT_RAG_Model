@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import './Auth.css';
 
 const Signup = () => {
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -18,7 +19,7 @@ const Signup = () => {
     setError('');
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/signup`, {
+      const response = await fetch(`${API_URL}/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 

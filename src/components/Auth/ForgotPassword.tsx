@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import './Auth.css';
 
 const ForgotPassword = () => {
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -17,7 +18,7 @@ const ForgotPassword = () => {
     setTestLink('');
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/forgot-password`, {
+      const response = await fetch(`${API_URL}/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
