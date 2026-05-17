@@ -51,3 +51,6 @@ pip install -r requirements.txt
 
 After installing dependencies,
 Enjoy!
+
+Author
+Developed by Vikneash M
