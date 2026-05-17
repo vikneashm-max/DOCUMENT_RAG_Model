@@ -28,7 +28,7 @@ const DocuRAG = () => {
   const { token, user, logout, currentConversationId, setConversationId } = useAuth();
   const navigate = useNavigate();
 
-  const API_URL = 'https://document-rag-model.onrender.com';
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
   const fetchConversations = async () => {
     if (!token) return;

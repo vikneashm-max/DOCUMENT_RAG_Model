@@ -17,7 +17,7 @@ const ForgotPassword = () => {
     setTestLink('');
 
     try {
-      const response = await fetch('https://document-rag-model.onrender.com/forgot-password', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),

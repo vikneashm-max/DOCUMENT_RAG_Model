@@ -18,7 +18,7 @@ const Signup = () => {
     setError('');
 
     try {
-      const response = await fetch('https://document-rag-model.onrender.com/signup', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 

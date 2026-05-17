@@ -24,7 +24,7 @@ const Profile = () => {
   const [passwordMessage, setPasswordMessage] = useState({ text: '', type: '' });
 
 
-  const API_URL = 'https://document-rag-model.onrender.com';
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
   useEffect(() => {
     const fetchProfile = async () => {
