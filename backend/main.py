@@ -1,4 +1,30 @@
 import os
+import sys
+
+# Set CPU/Thread environment variables immediately at startup to prevent PyTorch from allocating 
+# heavy thread pools on resource-constrained 512MB CPU servers.
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
+
+# Fix for torch DLL load issues on Windows
+if sys.platform == "win32":
+    torch_lib = os.path.join(sys.prefix, 'Lib', 'site-packages', 'torch', 'lib')
+    if os.path.exists(torch_lib):
+        try:
+            os.add_dll_directory(torch_lib)
+        except Exception:
+            pass
+
+try:
+    import torch
+    torch.set_num_threads(1)
+    torch.set_num_interop_threads(1)
+except ImportError:
+    pass
+
 import shutil
 from fastapi import FastAPI, HTTPException, UploadFile, File, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
@@ -8,17 +34,6 @@ from dotenv import load_dotenv
 from typing import Optional
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
-
-# Fix for torch DLL load issues on Windows
-import sys
-if sys.platform == "win32":
-    import os
-    torch_lib = os.path.join(sys.prefix, 'Lib', 'site-packages', 'torch', 'lib')
-    if os.path.exists(torch_lib):
-        try:
-            os.add_dll_directory(torch_lib)
-        except Exception:
-            pass
 
 try:
     from backend.document_processor import DocumentProcessor
@@ -526,21 +541,65 @@ async def ingest_documents():
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
     try:
-        # 1. Search vector store for context
+        # 1. Check if vector store is available
+        index_path = os.path.join(processor.vector_store_path, "index.faiss")
+        if not os.path.exists(index_path):
+            print("Vector store not found locally. Attempting to download from Supabase...")
+            processor.download_from_supabase()
+
+        if not os.path.exists(index_path):
+            # No vector store available, return a friendly message
+            ai_response = "Please upload a document first to start chatting"
+            conversation_id = request.conversation_id
+
+            if request.token:
+                email = get_current_user(request.token)
+                if email:
+                    with Session(engine) as session:
+                        user = session.exec(select(User).where(User.email == email)).first()
+                        if user:
+                            # Create new conversation if none exists
+                            if not conversation_id:
+                                title = request.message[:50] + "..." if len(request.message) > 50 else request.message
+                                conversation = Conversation(user_id=user.id, title=title)
+                                session.add(conversation)
+                                session.commit()
+                                session.refresh(conversation)
+                                conversation_id = conversation.id
+
+                            # Save user message
+                            user_msg = Message(
+                                conversation_id=conversation_id,
+                                role="user",
+                                content=request.message
+                            )
+                            session.add(user_msg)
+
+                            # Save assistant response
+                            assistant_msg = Message(
+                                conversation_id=conversation_id,
+                                role="assistant",
+                                content=ai_response
+                            )
+                            session.add(assistant_msg)
+                            session.commit()
+
+            return ChatResponse(
+                response=ai_response,
+                conversation_id=conversation_id or 0
+            )
+
+        # 2. Search vector store for context
         context = ""
         try:
-            index_path = os.path.join(processor.vector_store_path, "index.faiss")
-            if os.path.exists(index_path):
-                from langchain_community.vectorstores import FAISS
-                vector_db = FAISS.load_local(
-                    processor.vector_store_path,
-                    processor.embeddings,
-                    allow_dangerous_deserialization=True
-                )
-                docs = vector_db.max_marginal_relevance_search(request.message, k=5, fetch_k=10)
-                context = "\n".join([doc.page_content for doc in docs])
-            else:
-                print("Vector store index not found. Proceeding without context.")
+            from langchain_community.vectorstores import FAISS
+            vector_db = FAISS.load_local(
+                processor.vector_store_path,
+                processor.embeddings,
+                allow_dangerous_deserialization=True
+            )
+            docs = vector_db.max_marginal_relevance_search(request.message, k=5, fetch_k=10)
+            context = "\n".join([doc.page_content for doc in docs])
         except Exception as e:
             print(f"Error loading vector store: {e}. Proceeding without context.")
 

@@ -1,6 +1,5 @@
 import os
 from typing import List
-from langchain_core.documents import Document
 
 class DocumentProcessor:
     def __init__(self, upload_dir: str = "uploads", vector_store_path: str = "vectorstore", chunk_size: int = 1000, chunk_overlap: int = 200):
@@ -19,14 +18,30 @@ class DocumentProcessor:
     @property
     def embeddings(self):
         if self._embeddings is None:
-            from langchain_community.embeddings import HuggingFaceEmbeddings
-            print("Loading embedding model (this may take a moment)...")
-            self._embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+            # Set torch environment variables to minimize memory on 512MB CPU servers
+            os.environ["OMP_NUM_THREADS"] = "1"
+            os.environ["MKL_NUM_THREADS"] = "1"
+            os.environ["OPENBLAS_NUM_THREADS"] = "1"
+            os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
+            os.environ["NUMEXPR_NUM_THREADS"] = "1"
+            
+            try:
+                import torch
+                torch.set_num_threads(1)
+                torch.set_num_interop_threads(1)
+            except ImportError:
+                pass
+
+            from langchain_community.embeddings import FastEmbedEmbeddings
+            print("Loading FastEmbed embedding model (BAAI/bge-small-en-v1.5)...")
+            self._embeddings = FastEmbedEmbeddings(
+                model_name="BAAI/bge-small-en-v1.5"
+            )
         return self._embeddings
 
     def create_vector_store(self):
         """
-        Processes documents, creates a FAISS vector store, and saves it locally.
+        Processes documents, creates a FAISS vector store, saves it locally, and uploads it to Supabase Storage.
         """
         from langchain_community.vectorstores import FAISS
         chunks = self.process_directory()
@@ -37,9 +52,77 @@ class DocumentProcessor:
         vector_db = FAISS.from_documents(chunks, self.embeddings)
         vector_db.save_local(self.vector_store_path)
         print(f"Vector store saved to {self.vector_store_path}")
+        
+        # Upload the created vector store to Supabase Storage
+        self.upload_to_supabase()
+        
         return vector_db
 
-    def process_directory(self) -> List[Document]:
+    def upload_to_supabase(self):
+        """
+        Uploads index.faiss and index.pkl from local vector_store_path to Supabase storage.
+        """
+        supabase_url = os.getenv("SUPABASE_URL", "https://dgoatariwyvdirywmgnj.supabase.co")
+        supabase_key = os.getenv("SUPABASE_KEY") or os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+        if not supabase_key:
+            print("Warning: SUPABASE_KEY/SUPABASE_SERVICE_ROLE_KEY not found. Skipping Supabase Storage upload.")
+            return
+
+        try:
+            from supabase import create_client
+            supabase = create_client(supabase_url, supabase_key)
+            
+            for filename in ["index.faiss", "index.pkl"]:
+                local_file_path = os.path.join(self.vector_store_path, filename)
+                if os.path.exists(local_file_path):
+                    print(f"Uploading {filename} to Supabase Storage...")
+                    with open(local_file_path, "rb") as f:
+                        supabase.storage.from_("vectorstore").upload(
+                            path=filename,
+                            file=f,
+                            file_options={"upsert": "true"}
+                        )
+                    print(f"Successfully uploaded {filename} to Supabase Storage.")
+        except Exception as e:
+            print(f"Error uploading vector store to Supabase: {e}")
+
+    def download_from_supabase(self):
+        """
+        Downloads index.faiss and index.pkl from Supabase storage to local vector_store_path.
+        """
+        supabase_url = os.getenv("SUPABASE_URL", "https://dgoatariwyvdirywmgnj.supabase.co")
+        supabase_key = os.getenv("SUPABASE_KEY") or os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+        if not supabase_key:
+            print("Warning: SUPABASE_KEY/SUPABASE_SERVICE_ROLE_KEY not found. Skipping Supabase Storage download.")
+            return False
+
+        try:
+            from supabase import create_client
+            supabase = create_client(supabase_url, supabase_key)
+            
+            # Ensure local directory exists
+            if not os.path.exists(self.vector_store_path):
+                os.makedirs(self.vector_store_path)
+
+            downloaded_any = False
+            for filename in ["index.faiss", "index.pkl"]:
+                local_file_path = os.path.join(self.vector_store_path, filename)
+                print(f"Downloading {filename} from Supabase Storage...")
+                try:
+                    response = supabase.storage.from_("vectorstore").download(filename)
+                    with open(local_file_path, "wb") as f:
+                        f.write(response)
+                    print(f"Successfully downloaded {filename} from Supabase Storage.")
+                    downloaded_any = True
+                except Exception as file_error:
+                    print(f"Could not download {filename} from Supabase: {file_error}")
+            
+            return downloaded_any
+        except Exception as e:
+            print(f"Error downloading vector store from Supabase: {e}")
+            return False
+
+    def process_directory(self) -> List["Document"]:
         """
         Loads all PDF and TXT files from the upload directory and splits them into chunks.
         """

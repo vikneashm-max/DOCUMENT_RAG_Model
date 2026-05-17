@@ -1,6 +1,8 @@
 groq
 langchain
 langchain-community
+fastembed
+supabase
 langchain-core
 sentence-transformers
 faiss-cpu
@@ -13,6 +15,7 @@ tiktoken
 langchain-text-splitters
 sqlmodel
 psycopg2-binary
+supabase
 bcrypt==4.0.1
 passlib[bcrypt]==1.7.4
 python-jose[cryptography]
