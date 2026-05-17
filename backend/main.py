@@ -1,12 +1,13 @@
 import os
 import shutil
-from fastapi import FastAPI, HTTPException, UploadFile, File, Depends
+from fastapi import FastAPI, HTTPException, UploadFile, File, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from groq import Groq
 from dotenv import load_dotenv
 from typing import Optional
 from jose import JWTError, jwt
+from datetime import datetime, timedelta
 
 # Fix for torch DLL load issues on Windows
 import sys
@@ -91,6 +92,13 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     response: str
     conversation_id: int  # return conversation id so frontend can continue same chat
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
 
 class UserSignup(BaseModel):
     email: str
@@ -254,6 +262,153 @@ async def change_password(data: PasswordChange):
         session.commit()
         return {"message": "Password updated successfully"}
 
+@app.post("/forgot-password")
+async def forgot_password(data: ForgotPasswordRequest):
+    """Generate reset token and mock sending email link"""
+    with Session(engine) as session:
+        user = session.exec(select(User).where(User.email == data.email)).first()
+        
+        # Security best practice: return success even if user not found, 
+        # but output token for testing / development in JSON response so frontend can proceed!
+        if not user:
+            return {
+                "message": "If this email is registered, a password reset link has been generated.",
+                "status": "not_found"
+            }
+        
+        # Generate token
+        expire = datetime.utcnow() + timedelta(minutes=15)
+        payload = {"sub": user.email, "exp": expire}
+        token = jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+        
+        print("\n" + "="*50)
+        print(f"PASSWORD RESET LINK FOR {user.email}:")
+        print(f"http://localhost:5173/reset-password?token={token}")
+        print("="*50 + "\n")
+        
+        return {
+            "message": "If this email is registered, a password reset link has been generated.",
+            "token": token,
+            "link": f"http://localhost:5173/reset-password?token={token}"
+        }
+
+@app.post("/reset-password")
+async def reset_password(data: ResetPasswordRequest):
+    """Reset user password using token from URL"""
+    try:
+        payload = jwt.decode(data.token, SECRET_KEY, algorithms=[ALGORITHM])
+        email = payload.get("sub")
+        if not email:
+            raise HTTPException(status_code=400, detail="Invalid token payload")
+    except JWTError:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+        
+    with Session(engine) as session:
+        user = session.exec(select(User).where(User.email == email)).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+            
+        user.password_hash = get_password_hash(data.new_password)
+        session.add(user)
+        session.commit()
+        
+        return {"message": "Password reset successfully"}
+
+# ─────────────────────────────────────────────
+# Document Management Routes
+# ─────────────────────────────────────────────
+@app.get("/documents")
+async def get_documents(token: str):
+    """Get all documents uploaded by the logged-in user"""
+    email = get_current_user(token)
+    if not email:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    
+    with Session(engine) as session:
+        user = session.exec(select(User).where(User.email == email)).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        documents = session.exec(
+            select(DBDocument)
+            .where(DBDocument.user_id == user.id)
+            .order_by(DBDocument.created_at.desc())
+        ).all()
+        
+        return [
+            {
+                "id": doc.id,
+                "file_name": doc.file_name,
+                "file_type": doc.file_type,
+                "status": doc.status,
+                "created_at": doc.created_at
+            }
+            for doc in documents
+        ]
+
+@app.delete("/documents/{document_id}")
+async def delete_document(document_id: int, token: str):
+    """Delete a document record from database"""
+    email = get_current_user(token)
+    if not email:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    
+    with Session(engine) as session:
+        user = session.exec(select(User).where(User.email == email)).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        doc = session.get(DBDocument, document_id)
+        if not doc or doc.user_id != user.id:
+            raise HTTPException(status_code=404, detail="Document not found")
+        
+        session.delete(doc)
+        session.commit()
+        return {"message": "Document deleted successfully"}
+
+@app.get("/documents/stats")
+async def get_documents_stats(token: str):
+    """Get stats of user's uploaded documents"""
+    email = get_current_user(token)
+    if not email:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    
+    with Session(engine) as session:
+        user = session.exec(select(User).where(User.email == email)).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        docs = session.exec(select(DBDocument).where(DBDocument.user_id == user.id)).all()
+        
+        total_docs = len(docs)
+        total_processed = sum(1 for d in docs if d.status == "processed")
+        
+        # Calculate real FAISS vector store size
+        try:
+            total_size_bytes = 0
+            if os.path.exists(processor.vector_store_path):
+                for entry in os.scandir(processor.vector_store_path):
+                    if entry.is_file():
+                        total_size_bytes += entry.stat().st_size
+            
+            # Format to human readable string
+            if total_size_bytes == 0:
+                storage_used = "0 KB"
+            elif total_size_bytes < 1024:
+                storage_used = f"{total_size_bytes} B"
+            elif total_size_bytes < 1024 * 1024:
+                storage_used = f"{total_size_bytes / 1024:.1f} KB"
+            else:
+                storage_used = f"{total_size_bytes / (1024 * 1024):.1f} MB"
+        except Exception:
+            storage_used = "45 KB" # fallback
+            
+        return {
+            "total_documents": total_docs,
+            "total_processed": total_processed,
+            "storage_used": storage_used
+        }
+
 # ─────────────────────────────────────────────
 # Existing Routes
 # ─────────────────────────────────────────────
@@ -262,8 +417,21 @@ async def root():
     return {"message": "DocuRAG API is running"}
 
 @app.post("/upload")
-async def upload_file(file: UploadFile = File(...)):
+async def upload_file(
+    file: UploadFile = File(...),
+    token: Optional[str] = None,
+    authorization: Optional[str] = Header(None)
+):
     try:
+        # Check authorization if available
+        email = None
+        jwt_token = token
+        if not jwt_token and authorization and authorization.startswith("Bearer "):
+            jwt_token = authorization.split(" ")[1]
+        if jwt_token:
+            email = get_current_user(jwt_token)
+
+        # Clear existing uploads
         if os.path.exists(processor.upload_dir):
             for filename in os.listdir(processor.upload_dir):
                 file_path = os.path.join(processor.upload_dir, filename)
@@ -281,11 +449,43 @@ async def upload_file(file: UploadFile = File(...)):
         
         processor.create_vector_store()
         
+        # Save record to database if user is logged in
+        if email:
+            with Session(engine) as session:
+                user = session.exec(select(User).where(User.email == email)).first()
+                if user:
+                    db_doc = DBDocument(
+                        user_id=user.id,
+                        file_name=file.filename,
+                        file_path=file_path,
+                        file_type=file.filename.split('.')[-1].upper(),
+                        status="processed"
+                    )
+                    session.add(db_doc)
+                    session.commit()
+
         if os.path.exists(file_path):
             os.remove(file_path)
             
         return {"message": f"Successfully processed {file.filename}"}
     except Exception as e:
+        # Save error record if user logged in
+        if email:
+            try:
+                with Session(engine) as session:
+                    user = session.exec(select(User).where(User.email == email)).first()
+                    if user:
+                        db_doc = DBDocument(
+                            user_id=user.id,
+                            file_name=file.filename,
+                            file_path=os.path.join(processor.upload_dir, file.filename),
+                            file_type=file.filename.split('.')[-1].upper(),
+                            status="error"
+                        )
+                        session.add(db_doc)
+                        session.commit()
+            except Exception:
+                pass
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/clear")

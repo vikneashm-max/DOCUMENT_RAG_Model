@@ -2,8 +2,11 @@ import React, { useState } from 'react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
 import Login from './components/Auth/Login';
 import Signup from './components/Auth/Signup';
+import ForgotPassword from './components/Auth/ForgotPassword';
+import ResetPassword from './components/Auth/ResetPassword';
 import ReactMarkdown from 'react-markdown';
 import Profile from './components/Profile/Profile';
+import DocumentManager from './components/Documents/DocumentManager';
 import './index.css';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import ProtectedRoute from './ProtectedRoute';
@@ -231,6 +234,15 @@ const DocuRAG = () => {
 
       {/* Sidebar */}
       <aside className={`sidebar ${isSidebarOpen ? 'open' : ''}`}>
+        <div className="sidebar-header">
+          <span className="sidebar-brand">DocuRAG</span>
+          <button className="close-sidebar-btn" onClick={() => setIsSidebarOpen(false)} title="Close menu">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
         <button className="new-chat-btn" onClick={() => {
           setMessages([]);
           setConversationId(null);
@@ -273,25 +285,40 @@ const DocuRAG = () => {
         </div>
 
         <footer className="sidebar-footer">
-          <div className="user-profile">
-            <div className="user-info" onClick={() => navigate('/profile')} style={{ cursor: 'pointer' }}>
+          <div className="user-section">
+            <div className="user-profile-header">
               <div className="avatar">{user?.full_name?.charAt(0) || 'U'}</div>
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span className="email">{user?.email || 'User'}</span>
-                <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>View Profile</span>
+              <div className="user-details">
+                <span className="user-name">{user?.full_name || 'User'}</span>
+                <span className="user-email">{user?.email || ''}</span>
               </div>
             </div>
-            <button 
-              onClick={logout}
-              style={{ background: 'none', border: 'none', padding: '8px', cursor: 'pointer', color: 'var(--text-tertiary)' }}
-              title="Sign out"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                <polyline points="16 17 21 12 16 7"></polyline>
-                <line x1="21" y1="12" x2="9" y2="12"></line>
-              </svg>
-            </button>
+            <div className="user-actions">
+              <button className="sidebar-action-btn docs-btn" onClick={() => navigate('/documents')}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                  <line x1="16" y1="13" x2="8" y2="13"></line>
+                  <line x1="16" y1="17" x2="8" y2="17"></line>
+                </svg>
+                Manage Docs
+              </button>
+              <button className="sidebar-action-btn profile-btn" onClick={() => navigate('/profile')}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+                View Profile
+              </button>
+              <button className="sidebar-action-btn logout-btn" onClick={logout}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                  <polyline points="16 17 21 12 16 7"></polyline>
+                  <line x1="21" y1="12" x2="9" y2="12"></line>
+                </svg>
+                Sign out
+              </button>
+            </div>
           </div>
         </footer>
       </aside>
@@ -322,8 +349,8 @@ const DocuRAG = () => {
                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="url(#gradient)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <defs>
                     <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                      <stop offset="0%" stopColor="#10b981" />
-                      <stop offset="100%" stopColor="#059669" />
+                      <stop offset="0%" stopColor="#0d9488" />
+                      <stop offset="100%" stopColor="#0f766e" />
                     </linearGradient>
                   </defs>
                   <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path>
@@ -492,7 +519,17 @@ const App = () => {
             </ProtectedRoute>
           } 
         />
+        <Route 
+          path="/documents" 
+          element={
+            <ProtectedRoute>
+              <DocumentManager />
+            </ProtectedRoute>
+          } 
+        />
         <Route path="/signup" element={<Signup />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
       </Routes>
     </AuthProvider>
   );
