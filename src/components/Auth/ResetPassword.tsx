@@ -85,47 +85,62 @@ const ResetPassword = () => {
       <div className="auth-card">
         <div className="auth-header">
           <div className="auth-logo">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-              <line x1="9" y1="3" x2="9" y2="21"></line>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="url(#reset-logo-grad)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <defs>
+                <linearGradient id="reset-logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#2563eb" />
+                  <stop offset="100%" stopColor="#3b82f6" />
+                </linearGradient>
+              </defs>
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="16" y1="13" x2="8" y2="13" />
+              <line x1="16" y1="17" x2="8" y2="17" />
             </svg>
           </div>
           <h1 className="auth-title">Create new password</h1>
-          <p className="auth-subtitle">Choose a strong password to secure your account</p>
+          <p className="auth-subtitle">Choose a strong password to secure your DocuRAG account</p>
         </div>
 
         {success ? (
-          <div style={{ textAlign: 'center', animation: 'fadeIn 0.4s ease' }}>
+          <div style={{ textAlign: 'center', animation: 'authFadeIn 0.4s ease' }}>
             <div style={{
-              background: '#ecfdf5',
-              border: '1px solid #a7f3d0',
-              color: '#065f46',
+              background: '#f0fdf4',
+              border: '1px solid #bbf7d0',
+              color: '#166534',
               padding: '20px',
               borderRadius: '12px',
               fontSize: '14px',
-              fontWeight: 600,
+              fontWeight: 500,
               lineHeight: 1.5,
               marginBottom: '24px'
             }}>
               🎉 Password updated successfully!
             </div>
-            <p style={{ fontSize: '14px', color: '#64748b', margin: '0 0 24px' }}>
+            <p style={{ fontSize: '14px', color: '#475569', margin: '0 0 24px' }}>
               Redirecting you to the sign-in page in <strong>{countdown}</strong> seconds...
             </p>
             <button 
               className="auth-button" 
               onClick={() => navigate('/')}
+              style={{ width: '100%' }}
             >
               Sign In Now
             </button>
           </div>
         ) : (
           <form className="auth-form" onSubmit={handleSubmit}>
-            {error && <div style={{ color: '#ef4444', fontSize: '13px', marginBottom: '16px', textAlign: 'center', fontWeight: 500 }}>{error}</div>}
+            {error && <div style={{ color: '#ef4444', fontSize: '13px', marginBottom: '4px', textAlign: 'center', fontWeight: 500 }}>{error}</div>}
             
             <div className="auth-form-group">
               <label className="auth-form-label">New Password</label>
               <div className="auth-input-wrapper">
+                <div className="auth-input-icon">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                  </svg>
+                </div>
                 <input
                   type="password"
                   className="auth-input"
@@ -135,18 +150,18 @@ const ResetPassword = () => {
                   disabled={!token || isLoading}
                   required
                 />
-                <div className="auth-input-icon">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-                  </svg>
-                </div>
               </div>
             </div>
 
             <div className="auth-form-group">
               <label className="auth-form-label">Confirm Password</label>
               <div className="auth-input-wrapper">
+                <div className="auth-input-icon">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                  </svg>
+                </div>
                 <input
                   type="password"
                   className="auth-input"
@@ -156,12 +171,6 @@ const ResetPassword = () => {
                   disabled={!token || isLoading}
                   required
                 />
-                <div className="auth-input-icon">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-                  </svg>
-                </div>
               </div>
             </div>
 
@@ -170,10 +179,24 @@ const ResetPassword = () => {
               className="auth-button" 
               disabled={!token || isLoading}
             >
-              {isLoading ? 'Updating password...' : 'Reset password'}
+              {isLoading ? (
+                <>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ animation: 'spin 1s linear infinite' }}>
+                    <line x1="12" y1="2" x2="12" y2="6" />
+                    <line x1="12" y1="18" x2="12" y2="22" />
+                    <line x1="4.93" y1="4.93" x2="7.76" y2="7.76" />
+                    <line x1="16.24" y1="16.24" x2="19.07" y2="19.07" />
+                    <line x1="2" y1="12" x2="6" y2="12" />
+                    <line x1="18" y1="12" x2="22" y2="12" />
+                    <line x1="4.93" y1="19.07" x2="7.76" y2="16.24" />
+                    <line x1="16.24" y1="7.76" x2="19.07" y2="4.93" />
+                  </svg>
+                  <span>Updating password...</span>
+                </>
+              ) : 'Reset password'}
             </button>
 
-            <p className="auth-footer" style={{ marginTop: '20px' }}>
+            <p className="auth-footer" style={{ marginTop: '12px' }}>
               Back to <Link to="/" className="auth-link">Sign in</Link>
             </p>
           </form>

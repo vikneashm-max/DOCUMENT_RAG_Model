@@ -89,7 +89,7 @@ if not api_key:
 client = Groq(api_key=api_key)
 
 # JWT settings
-SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key")
+SECRET_KEY = os.getenv("SECRET_KEY", "your-super-secret-key-change-this-in-production")
 ALGORITHM = "HS256"
 
 # ─────────────────────────────────────────────

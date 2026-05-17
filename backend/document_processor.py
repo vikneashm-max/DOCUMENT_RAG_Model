@@ -18,13 +18,9 @@ class DocumentProcessor:
     @property
     def embeddings(self):
         if self._embeddings is None:
-            from langchain_openai import OpenAIEmbeddings
-            print("Initializing OpenAI-compatible Groq embeddings (text-embedding-3-small)...")
-            self._embeddings = OpenAIEmbeddings(
-                openai_api_key=os.getenv("GROQ_API_KEY"),
-                openai_api_base="https://api.groq.com/openai/v1",
-                model="text-embedding-3-small"
-            )
+            from langchain_community.embeddings import HuggingFaceEmbeddings
+            print("Initializing local HuggingFace embeddings (all-MiniLM-L6-v2)...")
+            self._embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
         return self._embeddings
 
     def create_vector_store(self):
