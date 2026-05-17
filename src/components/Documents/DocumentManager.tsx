@@ -32,7 +32,7 @@ const DocumentManager = () => {
   const [notification, setNotification] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const API_URL = 'http://localhost:8000';
+  const API_URL = 'https://document-rag-model.onrender.com';
 
   const fetchDocuments = async () => {
     if (!token) return;
