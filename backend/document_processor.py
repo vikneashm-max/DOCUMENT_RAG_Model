@@ -18,24 +18,12 @@ class DocumentProcessor:
     @property
     def embeddings(self):
         if self._embeddings is None:
-            # Set torch environment variables to minimize memory on 512MB CPU servers
-            os.environ["OMP_NUM_THREADS"] = "1"
-            os.environ["MKL_NUM_THREADS"] = "1"
-            os.environ["OPENBLAS_NUM_THREADS"] = "1"
-            os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
-            os.environ["NUMEXPR_NUM_THREADS"] = "1"
-            
-            try:
-                import torch
-                torch.set_num_threads(1)
-                torch.set_num_interop_threads(1)
-            except ImportError:
-                pass
-
-            from langchain_community.embeddings import FastEmbedEmbeddings
-            print("Loading FastEmbed embedding model (BAAI/bge-small-en-v1.5)...")
-            self._embeddings = FastEmbedEmbeddings(
-                model_name="BAAI/bge-small-en-v1.5"
+            from langchain_openai import OpenAIEmbeddings
+            print("Initializing OpenAI-compatible Groq embeddings (text-embedding-3-small)...")
+            self._embeddings = OpenAIEmbeddings(
+                openai_api_key=os.getenv("GROQ_API_KEY"),
+                openai_api_base="https://api.groq.com/openai/v1",
+                model="text-embedding-3-small"
             )
         return self._embeddings
 
