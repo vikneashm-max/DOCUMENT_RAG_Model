@@ -114,6 +114,7 @@ const DocuRAG = () => {
   const [isUploadMenuOpen, setIsUploadMenuOpen] = useState(false);
   const [isProfilePopupOpen, setIsProfilePopupOpen] = useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
   const menuRef = React.useRef<HTMLDivElement>(null);
   const profileMenuRef = React.useRef<HTMLDivElement>(null);
   const [uploadType, setUploadType] = useState<'all' | 'image'>('all');
@@ -196,6 +197,14 @@ const DocuRAG = () => {
       return () => clearTimeout(timer);
     }
   }, [notification]);
+
+  // Auto-resize textarea as content grows
+  React.useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+    }
+  }, [inputValue]);
 
   // Close upload menu on click outside
   React.useEffect(() => {
@@ -379,6 +388,115 @@ const DocuRAG = () => {
 
 
 
+  const renderInputArea = () => {
+    return (
+      <div className="input-area">
+        {selectedFile && (
+          <div className="file-preview-card">
+            <div className="file-card-content">
+              <div className="file-icon-box">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                </svg>
+              </div>
+              <div className="file-card-info">
+                <div className="file-card-name">{selectedFile.name}</div>
+                <div className="file-card-type">{selectedFile.name.split('.').pop()?.toUpperCase() || 'FILE'}</div>
+              </div>
+            </div>
+            <button className="file-card-remove" onClick={() => setSelectedFile(null)}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+        )}
+        
+        <div className="input-wrapper">
+          <input
+            type="file"
+            id="file-upload"
+            ref={fileInputRef}
+            style={{ display: 'none' }}
+            onChange={handleFileChange}
+            accept={uploadType === 'image' ? "image/*" : ".pdf,.doc,.docx,.txt"}
+          />
+          
+          <div className="attachment-container" ref={menuRef}>
+            <button 
+              className="attachment-btn" 
+              onClick={() => setIsUploadMenuOpen(!isUploadMenuOpen)}
+              title="Attach document or image"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+              </svg>
+            </button>
+            
+            {isUploadMenuOpen && (
+              <div className="upload-popup">
+                <button className="upload-option" onClick={() => triggerUpload('all')}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                  </svg>
+                  Upload Document
+                </button>
+                <button className="upload-option" onClick={() => triggerUpload('image')}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                    <polyline points="21 15 16 10 5 21"></polyline>
+                  </svg>
+                  Upload Image
+                </button>
+              </div>
+            )}
+          </div>
+          
+          <textarea
+            ref={textareaRef}
+            className="chat-input"
+            placeholder="Ask DocuRAG..."
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSendMessage();
+              }
+            }}
+            rows={1}
+            style={{ minHeight: '24px', overflowY: 'hidden' }}
+          />
+
+          <div className="input-right-container">
+            {inputValue.length > 0 && (
+              <span className="char-counter">{inputValue.length} chars</span>
+            )}
+            <button 
+              className={`send-btn ${(inputValue.trim() || selectedFile) ? 'active' : ''}`}
+              onClick={handleSendMessage}
+              disabled={isLoading || (!inputValue.trim() && !selectedFile)}
+              title="Send context query"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="19" x2="12" y2="5"></line>
+                <polyline points="5 12 12 5 19 12"></polyline>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div className="disclaimer">
+          DocuRAG can make mistakes. Verify important context.
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div id="root">
       {notification && (
@@ -397,7 +515,8 @@ const DocuRAG = () => {
       {/* Sidebar */}
       <aside className={`sidebar ${isSidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
-          <div className="sidebar-brand-wrapper">
+          <div className="sidebar-brand-wrapper" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <img src="/logo.png" alt="DocuRAG Logo" style={{ width: '24px', height: '24px', objectFit: 'contain' }} />
             <span className="sidebar-brand">DocuRAG</span>
           </div>
           <button className="close-sidebar-btn" onClick={() => setIsSidebarOpen(false)} title="Close menu">
@@ -478,6 +597,7 @@ const DocuRAG = () => {
             </div>
             <div className="sidebar-profile-info">
               <span className="sidebar-profile-name">{user?.full_name || 'User'}</span>
+              <span className="sidebar-profile-email">{user?.email || ''}</span>
             </div>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-tertiary)', marginLeft: 'auto' }}>
               <polyline points="18 15 12 9 6 15"></polyline>
@@ -498,192 +618,78 @@ const DocuRAG = () => {
               </svg>
             </button>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <svg className="header-logo" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="url(#header-logo-grad)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <defs>
-                  <linearGradient id="header-logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#2563eb" />
-                    <stop offset="100%" stopColor="#3b82f6" />
-                  </linearGradient>
-                </defs>
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                <polyline points="14 2 14 8 20 8" />
-              </svg>
+              <img src="/logo.png" alt="Logo" className="header-logo" style={{ width: '22px', height: '22px', objectFit: 'contain' }} />
               <span className="header-brand">Workspace</span>
             </div>
           </div>
         </header>
 
-        <div className="chat-container">
+        <div className={`chat-container ${messages.length === 0 ? 'empty-state' : ''}`}>
           {messages.length === 0 ? (
             <section className="welcome-section">
               <h1 className="welcome-title">How can I assist you today?</h1>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '15px', maxWidth: '500px', margin: '12px auto 0', lineHeight: '1.6', textAlign: 'center' }}>
-                Upload documents in the sidebar or directly in the chat to get instant, vector-backed insights.
-              </p>
+              {renderInputArea()}
             </section>
           ) : (
-            <div className="messages-list">
-              {messages.map((msg, i) => (
-                msg.role === 'assistant' ? (
-                  <AssistantMessage 
-                    key={i} 
-                    content={msg.content || ''} 
-                    onRegenerate={() => handleRegenerate(i)}
-                  />
-                ) : (
-                  <div key={i} className="message-row user">
-                    <div className={`message-content ${msg.file ? 'file-msg' : ''}`}>
-                      {msg.file ? (
-                        <div className="file-preview-card chat-card">
-                          <div className="file-card-content">
-                            <div className="file-icon-box">
-                              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path>
-                                <polyline points="14 2 14 8 20 8"></polyline>
-                              </svg>
-                            </div>
-                            <div className="file-card-info">
-                              <div className="file-card-name">{msg.file.name}</div>
-                              <div className="file-card-type">{msg.file.type}</div>
+            <>
+              <div className="messages-list">
+                {messages.map((msg, i) => (
+                  msg.role === 'assistant' ? (
+                    <AssistantMessage 
+                      key={i} 
+                      content={msg.content || ''} 
+                      onRegenerate={() => handleRegenerate(i)}
+                    />
+                  ) : (
+                    <div key={i} className="message-row user">
+                      <div className={`message-content ${msg.file ? 'file-msg' : ''}`}>
+                        {msg.file ? (
+                          <div className="file-preview-card chat-card">
+                            <div className="file-card-content">
+                              <div className="file-icon-box">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path>
+                                  <polyline points="14 2 14 8 20 8"></polyline>
+                                </svg>
+                              </div>
+                              <div className="file-card-info">
+                                <div className="file-card-name">{msg.file.name}</div>
+                                <div className="file-card-type">{msg.file.type}</div>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ) : (
-                        msg.content || ''
-                      )}
+                        ) : (
+                          msg.content || ''
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )
-              ))}
-              {isLoading && (
-                <div className="message-row assistant">
-                  <div className="message-header-row">
-                    <div className="message-avatar-box">
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ animation: 'spin 1.5s linear infinite' }}>
-                        <line x1="12" y1="2" x2="12" y2="6" />
-                        <line x1="12" y1="18" x2="12" y2="22" />
-                        <line x1="4.93" y1="4.93" x2="7.76" y2="7.76" />
-                        <line x1="16.24" y1="16.24" x2="19.07" y2="19.07" />
-                        <line x1="2" y1="12" x2="6" y2="12" />
-                        <line x1="18" y1="12" x2="22" y2="12" />
-                        <line x1="4.93" y1="19.07" x2="7.76" y2="16.24" />
-                        <line x1="16.24" y1="7.76" x2="19.07" y2="4.93" />
-                      </svg>
-                    </div>
-                    <span className="message-sender-name">AI Assistant</span>
-                  </div>
-                  <div className="message-content typing" style={{ paddingLeft: '34px' }}>DocuRAG is searching vector context</div>
-                </div>
-              )}
-              <div ref={messagesEndRef} />
-            </div>
-          )}
-        </div>
-
-        <div className="input-area">
-          {selectedFile && (
-            <div className="file-preview-card">
-              <div className="file-card-content">
-                <div className="file-icon-box">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path>
-                    <polyline points="14 2 14 8 20 8"></polyline>
-                  </svg>
-                </div>
-                <div className="file-card-info">
-                  <div className="file-card-name">{selectedFile.name}</div>
-                  <div className="file-card-type">{selectedFile.name.split('.').pop()?.toUpperCase() || 'FILE'}</div>
-                </div>
-              </div>
-              <button className="file-card-remove" onClick={() => setSelectedFile(null)}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18"></line>
-                  <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-              </button>
-            </div>
-          )}
-          
-          <div className="input-wrapper">
-            <input
-              type="file"
-              id="file-upload"
-              ref={fileInputRef}
-              style={{ display: 'none' }}
-              onChange={handleFileChange}
-              accept={uploadType === 'image' ? "image/*" : ".pdf,.doc,.docx,.txt"}
-            />
-            
-            <textarea
-              className="chat-input"
-              placeholder="Ask DocuRAG..."
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSendMessage();
-                }
-              }}
-              rows={1}
-              style={{ minHeight: '24px', overflowY: 'hidden' }}
-            />
-
-            <div className="input-tools-row">
-              <div className="input-tools-left">
-                <div className="attachment-container" ref={menuRef}>
-                  <button 
-                    className="attachment-btn" 
-                    onClick={() => setIsUploadMenuOpen(!isUploadMenuOpen)}
-                    title="Attach document or image"
-                  >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
-                    </svg>
-                  </button>
-                  
-                  {isUploadMenuOpen && (
-                    <div className="upload-popup">
-                      <button className="upload-option" onClick={() => triggerUpload('all')}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                          <polyline points="14 2 14 8 20 8"></polyline>
+                  )
+                ))}
+                {isLoading && (
+                  <div className="message-row assistant">
+                    <div className="message-header-row">
+                      <div className="message-avatar-box">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ animation: 'spin 1.5s linear infinite' }}>
+                          <line x1="12" y1="2" x2="12" y2="6" />
+                          <line x1="12" y1="18" x2="12" y2="22" />
+                          <line x1="4.93" y1="4.93" x2="7.76" y2="7.76" />
+                          <line x1="16.24" y1="16.24" x2="19.07" y2="19.07" />
+                          <line x1="2" y1="12" x2="6" y2="12" />
+                          <line x1="18" y1="12" x2="22" y2="12" />
+                          <line x1="4.93" y1="19.07" x2="7.76" y2="16.24" />
+                          <line x1="16.24" y1="7.76" x2="19.07" y2="4.93" />
                         </svg>
-                        Upload Document
-                      </button>
-                      <button className="upload-option" onClick={() => triggerUpload('image')}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                          <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                          <polyline points="21 15 16 10 5 21"></polyline>
-                        </svg>
-                        Upload Image
-                      </button>
+                      </div>
+                      <span className="message-sender-name">AI Assistant</span>
                     </div>
-                  )}
-                </div>
+                    <div className="message-content typing" style={{ paddingLeft: '34px' }}>DocuRAG is searching vector context</div>
+                  </div>
+                )}
+                <div ref={messagesEndRef} />
               </div>
-              
-              <div className="input-tools-right">
-                <span className="char-counter">{inputValue.length} chars</span>
-                <button 
-                  className={`send-btn ${(inputValue.trim() || selectedFile) ? 'active' : ''}`}
-                  onClick={handleSendMessage}
-                  disabled={isLoading || (!inputValue.trim() && !selectedFile)}
-                  title="Send context query"
-                >
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="22" y1="2" x2="11" y2="13"></line>
-                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                  </svg>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="disclaimer">
-            DocuRAG can make mistakes. Verify important context.
-          </div>
+              {renderInputArea()}
+            </>
+          )}
         </div>
       </main>
     </div>

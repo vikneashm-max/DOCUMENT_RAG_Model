@@ -48,18 +48,7 @@ const ForgotPassword = () => {
       <div className="auth-card">
         <div className="auth-header">
           <div className="auth-logo">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="url(#forgot-logo-grad)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <defs>
-                <linearGradient id="forgot-logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#2563eb" />
-                  <stop offset="100%" stopColor="#3b82f6" />
-                </linearGradient>
-              </defs>
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-              <polyline points="14 2 14 8 20 8" />
-              <line x1="16" y1="13" x2="8" y2="13" />
-              <line x1="16" y1="17" x2="8" y2="17" />
-            </svg>
+            <img src="/logo.png" alt="DocuRAG Logo" style={{ width: '32px', height: '32px', objectFit: 'contain' }} />
           </div>
           <h1 className="auth-title">Reset password</h1>
           <p className="auth-subtitle">We will help you recover access to your DocuRAG workspace</p>

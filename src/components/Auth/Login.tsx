@@ -7,6 +7,7 @@ const Login = () => {
   const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
@@ -44,18 +45,7 @@ const Login = () => {
       <div className="auth-card">
         <div className="auth-header">
           <div className="auth-logo">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="url(#login-logo-grad)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <defs>
-                <linearGradient id="login-logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#2563eb" />
-                  <stop offset="100%" stopColor="#3b82f6" />
-                </linearGradient>
-              </defs>
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-              <polyline points="14 2 14 8 20 8" />
-              <line x1="16" y1="13" x2="8" y2="13" />
-              <line x1="16" y1="17" x2="8" y2="17" />
-            </svg>
+            <img src="/logo.png" alt="DocuRAG Logo" style={{ width: '32px', height: '32px', objectFit: 'contain' }} />
           </div>
           <h1 className="auth-title">Welcome back</h1>
           <p className="auth-subtitle">Enter your credentials to access your DocuRAG workspace</p>
@@ -99,13 +89,32 @@ const Login = () => {
                 </svg>
               </div>
               <input
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 className="auth-input"
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
+              <button
+                type="button"
+                className="password-toggle-btn"
+                onClick={() => setShowPassword(!showPassword)}
+                tabIndex={-1}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                    <line x1="1" y1="1" x2="23" y2="23"></line>
+                  </svg>
+                ) : (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                )}
+              </button>
             </div>
           </div>
 
@@ -128,28 +137,7 @@ const Login = () => {
           </button>
         </form>
 
-        <div className="divider">or</div>
 
-        <div className="social-auth">
-          <button 
-            type="button" 
-            className="social-button" 
-            onClick={() => {
-              setEmail('demo@docurag.com');
-              setPassword('password123');
-            }}
-          >
-            <span className="social-button-icon">
-              <svg width="18" height="18" viewBox="0 0 24 24">
-                <path fill="#EA4335" d="M12 5.04c1.66 0 3.2.57 4.38 1.69l3.27-3.27C17.68 1.54 14.98 1 12 1 7.35 1 3.37 3.65 1.4 7.56l3.85 2.98c.9-2.7 3.42-4.5 6.75-4.5z"/>
-                <path fill="#4285F4" d="M23.49 12.27c0-.81-.07-1.59-.2-2.36H12v4.51h6.43c-.28 1.44-1.1 2.67-2.33 3.49l3.61 2.8c2.12-1.95 3.34-4.83 3.34-8.44z"/>
-                <path fill="#FBBC05" d="M5.25 14.44c-.24-.72-.38-1.5-.38-2.31s.14-1.59.38-2.31L1.4 6.84C.51 8.63 0 10.62 0 12.72s.51 4.09 1.4 5.88l3.85-3.02z"/>
-                <path fill="#34A853" d="M12 23c3.24 0 5.97-1.07 7.96-2.91l-3.61-2.8c-1.01.68-2.31 1.09-3.96 1.09-3.33 0-5.85-2.2-6.85-5.22l-3.88 3c1.98 3.95 5.96 6.6 10.63 6.6z"/>
-              </svg>
-            </span>
-            Use Demo Credentials
-          </button>
-        </div>
 
         <p className="auth-footer">
           Don't have an account? <Link to="/signup" className="auth-link">Sign up</Link>
